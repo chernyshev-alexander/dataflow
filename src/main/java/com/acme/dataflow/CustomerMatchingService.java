@@ -1,8 +1,8 @@
 package com.acme.dataflow;
 
-import com.acme.dataflow.model.CustomerInfo;
 import lombok.extern.slf4j.Slf4j;
 import java.util.Arrays;
+import javax.annotation.Nonnull;
 import org.apache.beam.sdk.Pipeline;
 import org.apache.beam.sdk.io.TextIO;
 import org.apache.beam.sdk.metrics.Counter;
@@ -17,6 +17,7 @@ import org.apache.beam.sdk.transforms.DoFn;
 import org.apache.beam.sdk.transforms.PTransform;
 import org.apache.beam.sdk.transforms.ParDo;
 import org.apache.beam.sdk.values.PCollection;
+import com.acme.dataflow.model.CustomerInfo;
 
 @Slf4j
 public class CustomerMatchingService {
@@ -37,10 +38,10 @@ public class CustomerMatchingService {
                     parts[4],
                     parts[5]);
 
-            log.debug(customerInfo.toString());
-
             ctx.output(customerInfo);
             handledCustomerRecords.inc();
+            
+            log.debug(customerInfo.toString());
         }
     }
 
@@ -51,7 +52,7 @@ public class CustomerMatchingService {
         public PCollection<CustomerInfo> expand(PCollection<String> lines) {
 
             PCollection<CustomerInfo> customers = lines.apply(ParDo.of(new CustomerInfoCsvParser()));
-            // here will be very complex pipeline 
+            // here will be  complex pipeline 
             // TODO
 
             return customers;
@@ -96,16 +97,23 @@ public class CustomerMatchingService {
         public void setOutput(String value);
     }
 
-    // Pipeline main
-    public static void execute(Options options) {
+    
+    /**
+     * Pipeline main entry
+     * 
+     * @param options  - pipeline arguments
+     */
+    public static void execute(@Nonnull Options options) {
 
         Pipeline pipeline = Pipeline.create(options);
 
         PCollection<CustomerInfo> result
                 = pipeline.apply("readlines", TextIO.read().from(options.getInputFile()))
-                        .apply(new CustomerMatchingTransformer());
+                        .apply("customer.matching", new CustomerMatchingTransformer());
         // .apply(ParDo.of(new FilterDoFn(options.getFilterPattern())));
-
+        
+        // TODO : write result to google storage
+        
         pipeline.run().waitUntilFinish();
     }
 

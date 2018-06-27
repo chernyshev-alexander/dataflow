@@ -28,7 +28,7 @@ public class CustomerMatchingServiceTest {
         service = new CustomerMatchingService();
     }
 
-    // Case 1. Individual 
+    ////////////////////////////////
     //
     // Testing individual DoFn function, one step of the pipeline
     //
@@ -48,9 +48,10 @@ public class CustomerMatchingServiceTest {
         
     }
 
-    // Case 2  Full pipeline
+    /////////////////////////////////////////////
     //
-    // End-to-end testing of the pipeline
+    // Case 2  Whole end to end pipeline testing
+    //
     // 
     
     @Test
@@ -68,6 +69,7 @@ public class CustomerMatchingServiceTest {
 
     }
     
+    // test data 
     private static final List<String> customerLines = Arrays.asList(new String[]{
         "ALEX, CHERNYSHEV, POLAND, KRAKOW, JANA KAZCHARY 3/35, +48 516 420 276",
         "OLGA, IVANOVA, USA, NY, BRONKS 1-12/1, +111 00 001 999"
