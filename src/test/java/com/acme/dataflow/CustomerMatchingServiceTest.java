@@ -9,7 +9,9 @@ import org.apache.beam.sdk.repackaged.com.google.common.base.Optional;
 import org.apache.beam.sdk.testing.PAssert;
 import org.apache.beam.sdk.testing.TestPipeline;
 import org.apache.beam.sdk.transforms.Create;
+import org.apache.beam.sdk.transforms.DoFn;
 import org.apache.beam.sdk.transforms.ParDo;
+import org.apache.beam.sdk.values.KV;
 import org.apache.beam.sdk.values.PCollection;
 import org.joda.time.Duration;
 import org.junit.Before;
@@ -28,6 +30,21 @@ public class CustomerMatchingServiceTest {
         service = new CustomerMatchingService();
     }
 
+    @Test
+    public void testCountryCodePaprser() {
+        
+        Pipeline pipeline = Pipeline.create(options);
+        PCollection<String> testInput = pipeline.apply(Create.of(countryCodes)); 
+        
+        PCollection<KV<String, String>> pCountryCodes = testInput.apply(ParDo.of(service.getCountryCodeParser()));
+        
+        PAssert.that(pCountryCodes).containsInAnyOrder(
+                KV.of("POL", "POLAND"), KV.of("US", "USA"),  KV.of("UK", "United Kingdom"));
+        
+        pipeline.run().waitUntilFinish(); // execute pipeline
+        
+    }    
+    
     ////////////////////////////////
     //
     // Testing individual DoFn function, one step of the pipeline
@@ -36,7 +53,7 @@ public class CustomerMatchingServiceTest {
     //
     
     @Test
-    public void testCustomerParser() throws Exception {
+    public void testCustomerParser() {
         
         Pipeline pipeline = Pipeline.create(options);
         PCollection<String> testInput = pipeline.apply(Create.of(customerLines)).setCoder(StringUtf8Coder.of());
@@ -72,14 +89,17 @@ public class CustomerMatchingServiceTest {
     // test data 
     private static final List<String> customerLines = Arrays.asList(new String[]{
         "ALEX, CHERNYSHEV, POLAND, KRAKOW, JANA KAZCHARY 3/35, +48 516 420 276",
-        "OLGA, IVANOVA, USA, NY, BRONKS 1-12/1, +111 00 001 999"
+        "OLGA, IVANOVA, US, NY, BRONKS 1-12/1, +111 00 001 999"
     });
 
     private static final List<CustomerInfo> expected = Arrays.asList(
             CustomerInfo.of(Optional.absent(), "ALEX", "CHERNYSHEV", "POLAND",
                     "KRAKOW", "JANA KAZCHARY 3/35", "+48 516 420 276"),
-            CustomerInfo.of(Optional.absent(), "OLGA", "IVANOVA", "USA",
+            CustomerInfo.of(Optional.absent(), "OLGA", "IVANOVA", "US",
                     "NY", "BRONKS 1-12/1", "+111 00 001 999"));
     
+    private static final List<String> countryCodes = Arrays.asList(new String[] {
+        "POL,  POLAND", "US, USA", "UK, United Kingdom"
+    });
     
 }

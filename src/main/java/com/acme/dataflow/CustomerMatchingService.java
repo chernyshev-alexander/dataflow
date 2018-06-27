@@ -18,9 +18,13 @@ import org.apache.beam.sdk.transforms.PTransform;
 import org.apache.beam.sdk.transforms.ParDo;
 import org.apache.beam.sdk.values.PCollection;
 import com.acme.dataflow.model.CustomerInfo;
+import java.util.regex.Pattern;
+import org.apache.beam.sdk.values.KV;
 
 @Slf4j
 public class CustomerMatchingService {
+    
+    static final String COMMA_SPLITTER_EXP = "\\s*,\\s*";
 
     public static class CustomerInfoCsvParser extends DoFn<String, CustomerInfo> {
 
@@ -29,7 +33,7 @@ public class CustomerMatchingService {
         @ProcessElement
         public void processElement(ProcessContext ctx) {
 
-            String[] parts = ctx.element().split("\\s*,\\s*");
+            String[] parts = ctx.element().split(COMMA_SPLITTER_EXP);
 
             CustomerInfo customerInfo = CustomerInfo.of(
                     Optional.absent(),
@@ -40,7 +44,7 @@ public class CustomerMatchingService {
 
             ctx.output(customerInfo);
             handledCustomerRecords.inc();
-            
+
             log.debug(customerInfo.toString());
         }
     }
@@ -97,11 +101,10 @@ public class CustomerMatchingService {
         public void setOutput(String value);
     }
 
-    
     /**
      * Pipeline main entry
-     * 
-     * @param options  - pipeline arguments
+     *
+     * @param options - pipeline arguments
      */
     public static void execute(@NonNull Options options) {
 
@@ -111,9 +114,8 @@ public class CustomerMatchingService {
                 = pipeline.apply("readlines", TextIO.read().from(options.getInputFile()))
                         .apply("customer.matching", new CustomerMatchingTransformer());
         // .apply(ParDo.of(new FilterDoFn(options.getFilterPattern())));
-        
+
         // TODO : write result to google storage
-        
         pipeline.run().waitUntilFinish();
     }
 
@@ -123,6 +125,10 @@ public class CustomerMatchingService {
 
     public CustomerInfoCsvParser getCustomerParser() {
         return new CustomerInfoCsvParser();
+    }
+
+    public CountryCodesParser getCountryCodeParser() {
+        return new CountryCodesParser(COMMA_SPLITTER_EXP);
     }
 
     public static void main(String[] args) {
