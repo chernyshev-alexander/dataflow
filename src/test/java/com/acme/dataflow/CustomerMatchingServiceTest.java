@@ -32,7 +32,7 @@ public class CustomerMatchingServiceTest {
     //
     // Testing individual DoFn function, one step of the pipeline
     //
-    // DoFnTester is deprecated and google gays recommended to use Pipeline with DirectRunner
+    // DoFnTester is deprecated and google recommended to use Pipeline with DirectRunner
     //
     
     @Test
