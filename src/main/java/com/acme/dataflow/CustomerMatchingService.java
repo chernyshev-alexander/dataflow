@@ -2,7 +2,7 @@ package com.acme.dataflow;
 
 import lombok.extern.slf4j.Slf4j;
 import java.util.Arrays;
-import javax.annotation.Nonnull;
+import lombok.NonNull;
 import org.apache.beam.sdk.Pipeline;
 import org.apache.beam.sdk.io.TextIO;
 import org.apache.beam.sdk.metrics.Counter;
@@ -103,7 +103,7 @@ public class CustomerMatchingService {
      * 
      * @param options  - pipeline arguments
      */
-    public static void execute(@Nonnull Options options) {
+    public static void execute(@NonNull Options options) {
 
         Pipeline pipeline = Pipeline.create(options);
 
