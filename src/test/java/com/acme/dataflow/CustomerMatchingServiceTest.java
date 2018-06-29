@@ -15,12 +15,15 @@ import org.apache.beam.sdk.values.KV;
 import org.apache.beam.sdk.values.PCollection;
 import static org.junit.Assert.*;
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
+@RunWith(JUnit4.class)
 public class CustomerMatchingServiceTest {
 
-    //@Rule
-    //public TemporaryFolder tf = new TemporaryFolder();
+    @Rule public TestPipeline pipeline = TestPipeline.create();    
     CustomerMatchingService.Options options;
 
     @Before
@@ -30,8 +33,6 @@ public class CustomerMatchingServiceTest {
 
     @Test
     public void testCountryCodeParser() {
-
-        Pipeline pipeline = Pipeline.create(options);
 
         CustomerMatchingService service = new CustomerMatchingService(pipeline, options);
 
@@ -46,8 +47,6 @@ public class CustomerMatchingServiceTest {
     @Test
     public void testCustomerParser() {
 
-        Pipeline pipeline = Pipeline.create(options);
-
         CustomerMatchingService service = new CustomerMatchingService(pipeline, options);
         PCollection<CustomerInfo> customers = service.readCustomers(Create.of(customerLines));
 
@@ -57,8 +56,6 @@ public class CustomerMatchingServiceTest {
 
     @Test
     public void testEnrichCustomerWithCountryName() {
-
-        Pipeline pipeline = Pipeline.create(options);
 
         CustomerMatchingService service = new CustomerMatchingService(pipeline, options);
 
