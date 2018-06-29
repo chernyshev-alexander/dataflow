@@ -5,6 +5,7 @@ import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.RequiredArgsConstructor;
 import lombok.ToString;
+import lombok.experimental.Wither;
 import org.apache.beam.sdk.repackaged.com.google.common.base.Optional;
 
 @Data
@@ -16,8 +17,10 @@ public class CustomerInfo implements Serializable {
     public final Optional<String> uniqueIdentity;
     
     public final String firstName, lastName;
-    public final String country, city;
+    public final String countryCode, city;
     public final String lineAddress;
     public final String phoneNo;
+    
+    @Wither final String countryName;
 
 }
