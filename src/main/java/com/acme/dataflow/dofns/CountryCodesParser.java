@@ -1,4 +1,4 @@
-package com.acme.dataflow;
+package com.acme.dataflow.dofns;
 
 import java.util.regex.Pattern;
 import lombok.extern.slf4j.Slf4j;

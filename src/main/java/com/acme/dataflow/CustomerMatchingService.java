@@ -14,55 +14,26 @@ import org.apache.beam.sdk.transforms.DoFn;
 import org.apache.beam.sdk.transforms.PTransform;
 import org.apache.beam.sdk.transforms.ParDo;
 import org.apache.beam.sdk.values.PCollection;
-import com.acme.dataflow.model.CustomerInfo;
-import java.util.regex.Pattern;
 import org.apache.beam.sdk.transforms.join.CoGbkResult;
 import org.apache.beam.sdk.transforms.join.CoGroupByKey;
 import org.apache.beam.sdk.transforms.join.KeyedPCollectionTuple;
 import org.apache.beam.sdk.values.KV;
 import org.apache.beam.sdk.values.PBegin;
+import org.apache.beam.sdk.values.PCollectionTuple;
 import org.apache.beam.sdk.values.TupleTag;
+import org.apache.beam.sdk.values.TupleTagList;
+import com.acme.dataflow.dofns.SplitCustomerByCountryDoFn;
+import com.acme.dataflow.model.CustomerInfo;
+import com.acme.dataflow.dofns.CountryCodesParser;
+import com.acme.dataflow.dofns.CustomerInfoCsvParserDoFn;
 
 @Slf4j
 public class CustomerMatchingService {
 
-    final Pipeline pipeline;
-    final Options options;
-
     static final String COMMA_SPLITTER_EXP = "\\s*,\\s*";
 
-    public static class CustomerInfoCsvParser extends DoFn<String, CustomerInfo> {
-
-        final Counter handledCustomerRecords = Metrics.counter(CustomerInfoCsvParser.class, "customer.parsed");
-        final Pattern pattern;
-
-        public CustomerInfoCsvParser(String regExp) {
-            pattern = Pattern.compile(regExp);
-        }
-
-        @ProcessElement
-        public void processElement(ProcessContext ctx) {
-
-            String[] parts = ctx.element().split(COMMA_SPLITTER_EXP);
-            CustomerInfo customerInfo = CustomerInfo.of(
-                    Optional.absent(),
-                    parts[0], parts[1],
-                    parts[2], parts[3],
-                    parts[4],
-                    parts[5], null);
-
-            ctx.output(customerInfo);
-            handledCustomerRecords.inc();
-        }
-    }
-
-    public static class CustomerMatchingTransformer extends PTransform<PCollection<String>, PCollection<CustomerInfo>> {
-
-        @Override
-        public PCollection<CustomerInfo> expand(PCollection<String> customerLines) {
-            return null;
-        }
-    }
+    final Pipeline pipeline;
+    final Options options;
 
     public static class EnrichCustomerWithCountryFn extends DoFn<KV<String, CoGbkResult>, CustomerInfo> {
 
@@ -97,7 +68,7 @@ public class CustomerMatchingService {
 
     public PCollection<CustomerInfo> readCustomers(PTransform<PBegin, PCollection<String>> reader) {
         return pipeline.apply("ReadCustomersCSV", reader)
-                .apply(ParDo.of(new CustomerInfoCsvParser(COMMA_SPLITTER_EXP)));
+                .apply(ParDo.of(new CustomerInfoCsvParserDoFn(COMMA_SPLITTER_EXP)));
     }
 
     /**
@@ -132,9 +103,9 @@ public class CustomerMatchingService {
      *    from customer
      *    left join country on customer.countryCode = country.countryCode
      * </code>
-     * 
-     * @param customers  p-collection
-     * @param countries  p-collections of KV{countryCode, countryName}
+     *
+     * @param customers p-collection
+     * @param countries p-collections of KV{countryCode, countryName}
      * @return enriched with countryName p-collection of the customers
      */
     public PCollection<CustomerInfo> enrichCustomerWithCountryCode(
@@ -157,15 +128,28 @@ public class CustomerMatchingService {
         return result;
     }
 
+    /**
+     * (customers) -> (customers EU or UK), (customers US), (customers Others)
+     *
+     * @param allCustomers - customers
+     * @return 3 collections are branched by TAG_**
+     */
+    public PCollectionTuple branchCustomersByCountryCode(final PCollection<CustomerInfo> allCustomers) {
+        return allCustomers
+                .apply(ParDo.of(new SplitCustomerByCountryDoFn())
+                        .withOutputTags(SplitCustomerByCountryDoFn.TAG_EU_CUSTOMER,
+                                TupleTagList.of(SplitCustomerByCountryDoFn.TAG_UDEF_COUNTRY_CUSTOMER)
+                                        .and(SplitCustomerByCountryDoFn.TAG_USA_CUSTOMER)));
+    }
+
+    /**
+     * main logic for pipeline
+     */
     public void execute() {
 
-        //PCollection<CustomerInfo> customers = enrichCustomerWithCountryCode(
-        //        readCustomers(TextIO.read().from(options.getCustomersSource())),
-        //        readCountryCodes(TextIO.read().from(options.getCountriesSource())));
-
-        //PCollection<CustomerInfo> result = csvCustomers.apply("CSV2Customer", new CustomerMatchingTransformer());
-        // TODO : write result to google storage
+        // TODO
         pipeline.run().waitUntilFinish();
+
     }
 
     // pipeline options from test or command line
@@ -196,9 +180,10 @@ public class CustomerMatchingService {
         Options options = PipelineOptionsFactory.fromArgs(args)
                 .withValidation()
                 .create()
-                .as(Options.class);
+                .as(Options.class
+                );
 
-        new CustomerMatchingService(Pipeline.create(options), options).execute();
+        //new CustomerMatchingService(Pipeline.create(options), options).execute();
     }
 
 }

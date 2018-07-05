@@ -1,29 +1,35 @@
 package com.acme.dataflow;
 
-import com.acme.dataflow.model.CustomerInfo;
 import java.util.Arrays;
 import java.util.List;
-import java.util.stream.Collectors;
+import com.acme.dataflow.dofns.SplitCustomerByCountryDoFn;
+import com.acme.dataflow.model.CustomerInfo;
+import java.util.Collections;
+import java.util.function.BiFunction;
 import org.apache.beam.runners.direct.repackaged.com.google.common.base.Strings;
-import org.apache.beam.sdk.Pipeline;
+import org.apache.beam.sdk.coders.SerializableCoder;
+import org.apache.beam.sdk.repackaged.com.google.common.base.Function;
 import org.apache.beam.sdk.repackaged.com.google.common.base.Optional;
 import org.apache.beam.sdk.testing.PAssert;
 import org.apache.beam.sdk.testing.TestPipeline;
 import org.apache.beam.sdk.transforms.Create;
+import org.apache.beam.sdk.transforms.ParDo;
 import org.apache.beam.sdk.transforms.SerializableFunction;
 import org.apache.beam.sdk.values.KV;
 import org.apache.beam.sdk.values.PCollection;
-import static org.junit.Assert.*;
+import org.apache.beam.sdk.values.PCollectionTuple;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
+import static org.junit.Assert.*;
 
 @RunWith(JUnit4.class)
 public class CustomerMatchingServiceTest {
 
-    @Rule public TestPipeline pipeline = TestPipeline.create();    
+    @Rule
+    public TestPipeline pipeline = TestPipeline.create();
     CustomerMatchingService.Options options;
 
     @Before
@@ -66,7 +72,6 @@ public class CustomerMatchingServiceTest {
         PCollection<CustomerInfo> enrichedCustomers = service.enrichCustomerWithCountryCode(customers, countries);
 
         SerializableFunction<Iterable<CustomerInfo>, Void> sf = (Iterable<CustomerInfo> it) -> {
-            // check countryName was set
             it.forEach(e -> assertTrue(!Strings.isNullOrEmpty(e.getCountryName())));
             return null;
         };
@@ -76,8 +81,36 @@ public class CustomerMatchingServiceTest {
     }
 
     @Test
+    public void testBranchCustomersByCountryCode() {
+
+        CustomerMatchingService service = new CustomerMatchingService(pipeline, options);
+
+        PCollection<CustomerInfo> customers = service.readCustomers(Create.of(customerLines));
+
+        PCollectionTuple result = service.branchCustomersByCountryCode(customers);
+        
+        PCollection<CustomerInfo> euCustomers = result.get(SplitCustomerByCountryDoFn.TAG_EU_CUSTOMER);
+        PCollection<CustomerInfo> usCustomers = result.get(SplitCustomerByCountryDoFn.TAG_USA_CUSTOMER);
+        PCollection<CustomerInfo> undefCustomers = result.get(SplitCustomerByCountryDoFn.TAG_UDEF_COUNTRY_CUSTOMER);
+        
+        //  high-order help function 
+        Function<List<String>, SerializableFunction<Iterable<CustomerInfo>, Void>> testFun
+                = (List<String> codes) -> (Iterable<CustomerInfo> it) -> {
+                    it.forEach((CustomerInfo e) -> assertTrue(codes.contains(e.countryCode)));
+                    return null;
+                };
+
+        // test that each collection has corresponded country codes
+        PAssert.that(euCustomers).satisfies(testFun.apply(Arrays.asList("POL", "UK")));
+        PAssert.that(usCustomers).satisfies(testFun.apply(Arrays.asList("US")));
+        PAssert.that(undefCustomers).satisfies(testFun.apply(Collections.EMPTY_LIST));
+
+        pipeline.run().waitUntilFinish();
+    }
+
+    @Test
     public void testMatchingCustomer() {
-          //TODO
+        //TODO
 
     }
 
