@@ -2,15 +2,11 @@ package com.acme.dataflow;
 
 import lombok.extern.slf4j.Slf4j;
 import org.apache.beam.sdk.Pipeline;
-import org.apache.beam.sdk.metrics.Counter;
-import org.apache.beam.sdk.metrics.Metrics;
 import org.apache.beam.sdk.options.Default;
 import org.apache.beam.sdk.options.Description;
 import org.apache.beam.sdk.options.PipelineOptions;
 import org.apache.beam.sdk.options.PipelineOptionsFactory;
 import org.apache.beam.sdk.options.Validation.Required;
-import org.apache.beam.sdk.repackaged.com.google.common.base.Optional;
-import org.apache.beam.sdk.transforms.DoFn;
 import org.apache.beam.sdk.transforms.PTransform;
 import org.apache.beam.sdk.transforms.ParDo;
 import org.apache.beam.sdk.values.PCollection;
@@ -26,6 +22,8 @@ import com.acme.dataflow.dofns.SplitCustomerByCountryDoFn;
 import com.acme.dataflow.model.CustomerInfo;
 import com.acme.dataflow.dofns.CountryCodesParser;
 import com.acme.dataflow.dofns.CustomerInfoCsvParserDoFn;
+import com.acme.dataflow.dofns.EnrichCustomerWithCountryFn;
+import com.acme.dataflow.dofns.KeyedCustomerDoFn;
 
 @Slf4j
 public class CustomerMatchingService {
@@ -34,32 +32,6 @@ public class CustomerMatchingService {
 
     final Pipeline pipeline;
     final Options options;
-
-    public static class EnrichCustomerWithCountryFn extends DoFn<KV<String, CoGbkResult>, CustomerInfo> {
-
-        final TupleTag<String> countryTag;
-        final TupleTag<CustomerInfo> customerTag;
-
-        public EnrichCustomerWithCountryFn(TupleTag<String> countryTag, TupleTag<CustomerInfo> customerTag) {
-            this.countryTag = countryTag;
-            this.customerTag = customerTag;
-        }
-
-        @ProcessElement
-        public void processElement(ProcessContext c) {
-
-            KV<String, CoGbkResult> kv = c.element();
-            String countryName = kv.getValue().getOnly(countryTag);
-
-            Iterable<CustomerInfo> it = kv.getValue().getAll(customerTag);
-            it.forEach((CustomerInfo customer) -> {
-                // create a fresh copy of customer and set up countryName field and 
-                // emit a new copy of customer
-                // modify current copy of customer isn't allowed by dataflow !!
-                c.output(customer.withCountryName(countryName));
-            });
-        }
-    }
 
     public CustomerMatchingService(Pipeline pipeline, Options options) {
         this.pipeline = pipeline;
@@ -83,17 +55,6 @@ public class CustomerMatchingService {
         return pipeline.apply("ReadCSVCountryCodes", reader)
                 .apply(ParDo.of(new CountryCodesParser(COMMA_SPLITTER_EXP)));
     }
-
-    /**
-     * Convert CustomerInfo -> KV<CustomerInfo.countryCode, CustomerInfo>
-     */
-    public static class KeyedCustomerDoFn extends DoFn<CustomerInfo, KV<String, CustomerInfo>> {
-
-        @ProcessElement
-        public void processElement(ProcessContext ctx) {
-            ctx.output(KV.of(ctx.element().countryCode, ctx.element()));
-        }
-    };
 
     /**
      * Implements left join customer with country by countryCode as :
