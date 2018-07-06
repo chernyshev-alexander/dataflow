@@ -6,7 +6,7 @@ import org.apache.beam.sdk.transforms.DoFn;
 import org.apache.beam.sdk.values.KV;
 
 /**
- * Transform CSV line to CustomerInfo
+ * CustomerInfo ->  {CustomerInfo.countryCode -> CustomerInfo }
  * 
  * @author achernyshev
  */
