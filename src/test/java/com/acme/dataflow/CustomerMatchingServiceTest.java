@@ -5,15 +5,12 @@ import java.util.List;
 import com.acme.dataflow.dofns.SplitCustomerByCountryDoFn;
 import com.acme.dataflow.model.CustomerInfo;
 import java.util.Collections;
-import java.util.function.BiFunction;
 import org.apache.beam.runners.direct.repackaged.com.google.common.base.Strings;
-import org.apache.beam.sdk.coders.SerializableCoder;
 import org.apache.beam.sdk.repackaged.com.google.common.base.Function;
 import org.apache.beam.sdk.repackaged.com.google.common.base.Optional;
 import org.apache.beam.sdk.testing.PAssert;
 import org.apache.beam.sdk.testing.TestPipeline;
 import org.apache.beam.sdk.transforms.Create;
-import org.apache.beam.sdk.transforms.ParDo;
 import org.apache.beam.sdk.transforms.SerializableFunction;
 import org.apache.beam.sdk.values.KV;
 import org.apache.beam.sdk.values.PCollection;
@@ -35,19 +32,6 @@ public class CustomerMatchingServiceTest {
     @Before
     public void before() {
         options = TestPipeline.testingPipelineOptions().as(CustomerMatchingService.Options.class);
-    }
-
-    @Test
-    public void testCountryCodeParser() {
-
-        CustomerMatchingService service = new CustomerMatchingService(pipeline, options);
-
-        PCollection<KV<String, String>> pCountryCodes = service.readCountryCodes(Create.of(countryCodes));
-
-        PAssert.that(pCountryCodes).containsInAnyOrder(KV.of("POL", "POLAND"), KV.of("US", "USA"),
-                KV.of("UK", "United Kingdom"));
-
-        pipeline.run().waitUntilFinish();
     }
 
     @Test
@@ -130,4 +114,21 @@ public class CustomerMatchingServiceTest {
         "POL,  POLAND", "US, USA", "UK, United Kingdom"
     });
 
+    private static final List<String> SALES = Arrays.asList(new String[] {
+       "CHERNYSHEV, +48516420276, STORE.1, PROD.1, TX-1000, 1, 10.20 0.00 EUR", 
+       "IVANOVA, +11100001999, STORE.2, PROD.10, TX-4000, 1, 50.10 0.00 EUR", 
+       "DONALN, +11111111111, STORE.4, PROD.100, TX-2233, 1, 30.40 4.00 USD", 
+    });
+    
+   private static final List<String> STORES = Arrays.asList(new String[] {
+       "STORE.1,  APPLE", 
+       "STORE.2,  FURLA", 
+       "STORE.4,  HOME DEPOT", 
+    });   
+
+   private static final List<String> PERSENT_OF_DISCOUNT_BY_CURRENCY = Arrays.asList(new String[] {
+       "EUR,  2", 
+       "USD,  5"
+    });   
+   
 }

@@ -6,6 +6,12 @@ import org.apache.beam.sdk.transforms.join.CoGbkResult;
 import org.apache.beam.sdk.values.KV;
 import org.apache.beam.sdk.values.TupleTag;
 
+/**
+ *  select customer{countryName = country.name}
+ *       from customer left join country 
+ *       on customer.countryCode = country.countryCode
+ *
+ */
 public class EnrichCustomerWithCountryFn extends DoFn<KV<String, CoGbkResult>, CustomerInfo> {
 
     final TupleTag<String> countryTag;
