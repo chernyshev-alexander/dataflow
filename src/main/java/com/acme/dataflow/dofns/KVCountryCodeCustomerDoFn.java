@@ -10,7 +10,7 @@ import org.apache.beam.sdk.values.KV;
  * 
  * @author achernyshev
  */
-public class KeyedCustomerDoFn extends DoFn<CustomerInfo, KV<String, CustomerInfo>> {
+public class KVCountryCodeCustomerDoFn extends DoFn<CustomerInfo, KV<String, CustomerInfo>> {
 
         @ProcessElement
         public void processElement(ProcessContext ctx) {

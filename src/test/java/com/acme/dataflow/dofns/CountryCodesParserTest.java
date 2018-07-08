@@ -1,6 +1,5 @@
 package com.acme.dataflow.dofns;
 
-import com.acme.dataflow.DataFlowConfig;
 import java.util.Arrays;
 import java.util.List;
 import org.apache.beam.sdk.testing.PAssert;
@@ -23,7 +22,7 @@ public class CountryCodesParserTest {
     @Test
     public void testCountryCodeParser() {
 
-        CountryCodesParser parser = new CountryCodesParser(DataFlowConfig.COMMA_SPLITTER_EXP_DEFAULT);
+        CountryCodesParser parser = new CountryCodesParser();
 
         PCollection<KV<String, String>> pCountryCodes = pipeline.apply(Create.of(COUNTRY_CODES))
                 .apply(ParDo.of(parser));

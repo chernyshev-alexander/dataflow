@@ -2,17 +2,10 @@ package com.acme.dataflow.dofns;
 
 import java.util.regex.Pattern;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.beam.sdk.transforms.DoFn;
 import org.apache.beam.sdk.values.KV;
 
 @Slf4j
-public class CountryCodesParser extends DoFn<String, KV<String, String>> {
-
-    final Pattern pattern;
-
-    public CountryCodesParser(String regExp) {
-        pattern = Pattern.compile(regExp);
-    }
+public class CountryCodesParser extends AbstractCSVKVEntityParser<String> {
 
     @ProcessElement
     public void processElement(ProcessContext c) {

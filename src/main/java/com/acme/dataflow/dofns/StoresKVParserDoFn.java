@@ -6,7 +6,7 @@ import org.apache.beam.sdk.values.KV;
 
 /**
 * 
-*  csv line  => KV { storeId -> name }
+*  csv line  => KV { storeId -> Store }
 */
 
 @Slf4j

@@ -2,15 +2,14 @@ package com.acme.dataflow.dofns;
 
 import com.acme.dataflow.model.SaleTx;
 import java.math.BigDecimal;
-import java.util.Arrays;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.beam.sdk.repackaged.org.apache.commons.lang3.StringUtils;
+import static org.apache.beam.sdk.repackaged.org.apache.commons.lang3.StringUtils.SPACE;
 import org.apache.beam.sdk.values.KV;
-
 
 /**
 * 
-*  csv line  => KV { (lastCustomerName) -> SaleTx }
+*  csv line  => KV { pnoneNumber -> SaleTx }
 */
 
 @Slf4j
@@ -23,7 +22,7 @@ public class SalesKVParserDoFn extends AbstractCSVKVEntityParser<SaleTx> {
         if (parts.length < 9) {
             log.warn("bad record  " + c.element());
         } else {
-            c.output(KV.of(parts[0], buildEntity(parts)));
+            c.output(KV.of(parts[1], buildEntity(parts)));
         }
     }
 
@@ -31,7 +30,7 @@ public class SalesKVParserDoFn extends AbstractCSVKVEntityParser<SaleTx> {
         
         return SaleTx.of(
                 parts[0], // lastCustomerName,
-                removeSpaces(parts[1]), // normalizedPhoneNumber,
+                normalize(parts[1]), // normalizedPhoneNumber,
                 parts[2], // storeId,
                 parts[3], //  productCode,
                 parts[4], //  txId,
@@ -41,8 +40,8 @@ public class SalesKVParserDoFn extends AbstractCSVKVEntityParser<SaleTx> {
                 parts[8]);  //  currencyCode)
     }
 
-    private String removeSpaces(String part) {
-        return StringUtils.remove(part, ' ');
+    private String normalize(String part) {
+        return StringUtils.remove(part, SPACE);
     }
 
 }

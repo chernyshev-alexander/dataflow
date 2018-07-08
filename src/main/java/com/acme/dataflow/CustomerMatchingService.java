@@ -23,7 +23,13 @@ import com.acme.dataflow.model.CustomerInfo;
 import com.acme.dataflow.dofns.CountryCodesParser;
 import com.acme.dataflow.dofns.CustomerInfoCsvParserDoFn;
 import com.acme.dataflow.dofns.EnrichCustomerWithCountryFn;
-import com.acme.dataflow.dofns.KeyedCustomerDoFn;
+import com.acme.dataflow.dofns.JoinerCustomersAndSalesDoFn;
+import com.acme.dataflow.dofns.KVCountryCodeCustomerDoFn;
+import com.acme.dataflow.dofns.KVNameForCustomerDoFn;
+import com.acme.dataflow.dofns.SalesKVParserDoFn;
+import com.acme.dataflow.model.SaleTx;
+import org.apache.beam.sdk.repackaged.org.apache.commons.lang3.tuple.ImmutablePair;
+import org.apache.beam.sdk.transforms.DoFn;
 
 @Slf4j
 public class CustomerMatchingService {
@@ -53,7 +59,7 @@ public class CustomerMatchingService {
      */
     public PCollection<KV<String, String>> readCountryCodes(PTransform<PBegin, PCollection<String>> reader) {
         return pipeline.apply("ReadCSVCountryCodes", reader)
-                .apply(ParDo.of(new CountryCodesParser(COMMA_SPLITTER_EXP)));
+                .apply(ParDo.of(new CountryCodesParser()));
     }
 
     /**
@@ -76,7 +82,7 @@ public class CustomerMatchingService {
         final TupleTag<CustomerInfo> customerTag = new TupleTag<>();
         final TupleTag<String> countryTag = new TupleTag<>();
 
-        PCollection<KV<String, CustomerInfo>> keyedCustomers = customers.apply(ParDo.of(new KeyedCustomerDoFn()));
+        PCollection<KV<String, CustomerInfo>> keyedCustomers = customers.apply(ParDo.of(new KVCountryCodeCustomerDoFn()));
 
         PCollection<KV<String, CoGbkResult>> customerWithCountryJoin = KeyedPCollectionTuple
                 .of(customerTag, keyedCustomers)
@@ -103,6 +109,35 @@ public class CustomerMatchingService {
                                         .and(SplitCustomerByCountryDoFn.TAG_USA_CUSTOMER)));
     }
 
+    public PCollection<String> matchSalesWithCustomers(
+                    final PCollection<CustomerInfo> allCustomers,
+                    final PCollection<KV<ImmutablePair<String, String>, SaleTx>> sales) {
+        
+        PCollectionTuple countryCustomers = branchCustomersByCountryCode(allCustomers);
+        
+        PCollection<CustomerInfo> euCustomers = countryCustomers.get(SplitCustomerByCountryDoFn.TAG_EU_CUSTOMER);
+        PCollection<CustomerInfo> usCustomers = countryCustomers.get(SplitCustomerByCountryDoFn.TAG_USA_CUSTOMER);
+        PCollection<CustomerInfo> undefCustomers = countryCustomers.get(SplitCustomerByCountryDoFn.TAG_UDEF_COUNTRY_CUSTOMER);
+        
+        final TupleTag<CustomerInfo> tagCustomerInfo = new TupleTag<>();
+        final TupleTag<SaleTx> tagSaleTx = new TupleTag<>();
+
+        PCollection<KV<ImmutablePair<String, String>, CustomerInfo>> keyPhoneNameCustomer = 
+                euCustomers.apply(ParDo.of(new KVNameForCustomerDoFn()));
+            
+        // join customer as c, sales as s where c.phone = s.phone and c.lastname = s.customername
+        PCollection<KV<ImmutablePair<String, String>, CoGbkResult>> join = KeyedPCollectionTuple
+                .of(tagCustomerInfo, keyPhoneNameCustomer)
+                .and(tagSaleTx, sales)
+                .apply(CoGroupByKey.create());
+        
+        PCollection<String> result = join.apply("JoinCustomersAndSales", 
+                ParDo.of(new JoinerCustomersAndSalesDoFn(tagCustomerInfo, tagSaleTx)));
+
+        return result;
+ 
+    }
+    
     /**
      * main logic for pipeline
      */

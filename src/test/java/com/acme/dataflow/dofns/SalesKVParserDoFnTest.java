@@ -32,17 +32,17 @@ public class SalesKVParserDoFnTest {
     
         SerializableFunction<Iterable<KV<String, SaleTx>>, Void> sf = (Iterable<KV<String, SaleTx>> it) -> {
                     it.forEach((KV<String, SaleTx> kv) -> {
-                        assertTrue(kv.getKey() == kv.getValue().productCode);
+                        assertTrue(kv.getKey().equalsIgnoreCase(kv.getValue().normalizedPhoneNumber));
                             });
                     return null;
                 };
 
         PAssert.that(result).containsInAnyOrder(Arrays.asList(
-                KV.of("CHERNYSHEV", SaleTx.of("CHERNYSHEV", "+48516420276", "STORE.1", "PROD.1", "TX-1000", 1, 
+                KV.of("+48516420276", SaleTx.of("CHERNYSHEV", "+48516420276", "STORE.1", "PROD.1", "TX-1000", 1, 
                           BigDecimal.valueOf(10.21), BigDecimal.valueOf(0.0), "EUR")),
-                  KV.of("IVANOVA", SaleTx.of("IVANOVA", "+11100001999", "STORE.2", "PROD.10", "TX-4000", 1, 
+                  KV.of("+11100001999", SaleTx.of("IVANOVA", "+11100001999", "STORE.2", "PROD.10", "TX-4000", 1, 
                           BigDecimal.valueOf(50.00), BigDecimal.valueOf(0.0), "EUR")),
-                KV.of("DONALN", SaleTx.of("DONALN", "+32011012", "STORE.4", "PROD.100", "TX-2233", 1,
+                KV.of("+32011012", SaleTx.of("DONALN", "+32011012", "STORE.4", "PROD.100", "TX-2233", 1,
                         BigDecimal.valueOf(30.40), BigDecimal.valueOf(4.50), "USD"))));
         
         pipeline.run().waitUntilFinish();

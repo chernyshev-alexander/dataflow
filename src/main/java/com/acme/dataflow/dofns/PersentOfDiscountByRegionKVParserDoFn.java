@@ -6,7 +6,7 @@ import org.apache.beam.sdk.values.KV;
 
 /**
 * 
-*  csv line  => KV { currencycode -> discount }
+*  csv line  => KV { currencycode -> RegionDiscount }
 */
 
 @Slf4j

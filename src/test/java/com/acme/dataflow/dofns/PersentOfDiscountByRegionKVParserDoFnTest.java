@@ -1,6 +1,5 @@
 package com.acme.dataflow.dofns;
 
-import com.acme.dataflow.DataFlowConfig;
 import com.acme.dataflow.model.RegionDiscount;
 import java.util.Arrays;
 import java.util.List;

@@ -93,8 +93,23 @@ public class CustomerMatchingServiceTest {
     }
 
     @Test
-    public void testMatchingCustomer() {
-        //TODO
+    public void testMatchSalesWithCustomers() {
+     
+        CustomerMatchingService service = new CustomerMatchingService(pipeline, options);
+
+        PCollection<CustomerInfo> customers = service.readCustomers(Create.of(customerLines));
+        PCollection<KV<String, String>> countries = service.readCountryCodes(Create.of(countryCodes));
+
+        // CustomerInfo.countryCode should be one of the countries codes POL, US, UK ..
+        PCollection<CustomerInfo> enrichedCustomers = service.enrichCustomerWithCountryCode(customers, countries);
+
+        PCollectionTuple result = service.branchCustomersByCountryCode(customers);
+        
+        PCollection<CustomerInfo> euCustomers = result.get(SplitCustomerByCountryDoFn.TAG_EU_CUSTOMER);
+        PCollection<CustomerInfo> usCustomers = result.get(SplitCustomerByCountryDoFn.TAG_USA_CUSTOMER);
+        PCollection<CustomerInfo> undefCustomers = result.get(SplitCustomerByCountryDoFn.TAG_UDEF_COUNTRY_CUSTOMER);
+        
+         pipeline.run().waitUntilFinish();
 
     }
 
@@ -115,9 +130,9 @@ public class CustomerMatchingServiceTest {
     });
 
     private static final List<String> SALES = Arrays.asList(new String[] {
-       "CHERNYSHEV, +48516420276, STORE.1, PROD.1, TX-1000, 1, 10.20 0.00 EUR", 
-       "IVANOVA, +11100001999, STORE.2, PROD.10, TX-4000, 1, 50.10 0.00 EUR", 
-       "DONALN, +11111111111, STORE.4, PROD.100, TX-2233, 1, 30.40 4.00 USD", 
+       "CHERNYSHEV, +48516420276, STORE.1, PROD.1, TX-1000, 1, 10.20, 0.00, EUR", 
+       "IVANOVA, +11100001999, STORE.2, PROD.10, TX-4000, 1, 50.10, 0.00, EUR", 
+       "DONALN, +11111111111, STORE.4, PROD.100, TX-2233, 1, 30.40, 4.00, USD", 
     });
     
    private static final List<String> STORES = Arrays.asList(new String[] {

@@ -6,6 +6,10 @@ import org.apache.beam.sdk.repackaged.org.apache.commons.lang3.StringUtils;
 import org.apache.beam.sdk.transforms.DoFn;
 import org.apache.beam.sdk.values.TupleTag;
 
+/**
+ * input - CustomerInfo
+ * output - CustomerInfo(POL, UK), CustomerInfo(US), CustomerInfo(<others>)
+ */
 @Slf4j
 public class SplitCustomerByCountryDoFn extends DoFn<CustomerInfo, CustomerInfo> {
     
