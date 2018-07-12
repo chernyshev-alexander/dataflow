@@ -21,3 +21,5 @@ How to run :  maven test
         2. refactored : all Dofn's moved to dofns package
 
 06/07 - added discounts. sales, stores and corresponded DoFns parsers
+
+13/07 - implemented customer sales (makeSalesReportByVendorsWithRegionalDiscount)

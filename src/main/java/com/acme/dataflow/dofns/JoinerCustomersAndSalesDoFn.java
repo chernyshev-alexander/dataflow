@@ -3,13 +3,14 @@ package com.acme.dataflow.dofns;
 import com.acme.dataflow.model.CustomerInfo;
 import com.acme.dataflow.model.CustomerSales;
 import com.acme.dataflow.model.SaleTx;
-import org.apache.beam.sdk.repackaged.org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.beam.sdk.transforms.DoFn;
 import org.apache.beam.sdk.transforms.join.CoGbkResult;
 import org.apache.beam.sdk.values.KV;
 import org.apache.beam.sdk.values.TupleTag;
+import lombok.extern.slf4j.Slf4j;
 
-public class JoinerCustomersAndSalesDoFn extends DoFn<KV<ImmutablePair<String, String>, CoGbkResult>, CustomerSales> {
+@Slf4j
+public class JoinerCustomersAndSalesDoFn extends DoFn<KV<String, CoGbkResult>, CustomerSales> {
 
     final TupleTag<SaleTx> saleTag;
     final TupleTag<CustomerInfo> customerTag;
@@ -22,17 +23,23 @@ public class JoinerCustomersAndSalesDoFn extends DoFn<KV<ImmutablePair<String, S
     @ProcessElement
     public void processElement(ProcessContext c) {
 
-        KV<ImmutablePair<String, String>, CoGbkResult> kv = c.element();
+        KV<String, CoGbkResult> kv = c.element();
         
-        ImmutablePair<String, String> k = kv.getKey();
+        String key = kv.getKey();
+        CoGbkResult joinResult = kv.getValue();
         
-        CustomerInfo customer = kv.getValue().getOnly(customerTag);
-        Iterable<SaleTx> sales = kv.getValue().getAll(saleTag);
+        CustomerInfo customer = joinResult.getOnly(customerTag, null);
         
-        CustomerSales cs  = CustomerSales.of(customer);
-                
-        sales.forEach((SaleTx tx) -> cs.getSales().add(tx));
+        if (customer == null) {
+         // don't write output when sale doesn't have customer,  [] -> [sales, ..]
+         // could be if we have inconsistent data
+            return ;
+        }
         
-        c.output(cs);
+        // [customer] -> [sales, ..]
+        CustomerSales result = CustomerSales.of(customer);
+        joinResult.getAll(saleTag).forEach(e -> result.getSales().add(e));
+ 
+        c.output(result);
     }
 }

@@ -2,7 +2,7 @@ package com.acme.dataflow.dofns;
 
 import java.util.regex.Pattern;
 
-public interface CSVParsers {
+public interface CSVCommons {
     
     public static final String COMMA_SPLITTER_EXP_DEFAULT = "\\s*,\\s*";
     

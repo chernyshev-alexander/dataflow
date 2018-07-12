@@ -10,7 +10,7 @@ import org.apache.beam.sdk.values.KV;
 */
 
 @Slf4j
-public class StoresKVParserDoFn extends DoFn<String, KV<String, Store>> implements CSVParsers {
+public class StoresKVParserDoFn extends DoFn<String, KV<String, Store>> implements CSVCommons {
     
     @ProcessElement
     public void processElement(ProcessContext c) {

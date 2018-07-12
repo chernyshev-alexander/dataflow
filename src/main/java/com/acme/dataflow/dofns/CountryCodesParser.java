@@ -6,7 +6,7 @@ import org.apache.beam.sdk.transforms.DoFn.ProcessElement;
 import org.apache.beam.sdk.values.KV;
 
 @Slf4j
-public class CountryCodesParser extends DoFn<String, KV<String, String>> implements CSVParsers {
+public class CountryCodesParser extends DoFn<String, KV<String, String>> implements CSVCommons {
 
     @ProcessElement
     public void processElement(ProcessContext c) {

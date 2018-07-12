@@ -1,7 +1,7 @@
 package com.acme.dataflow.model;
 
 import java.io.Serializable;
-import java.util.Collections;
+import java.util.ArrayList;
 import java.util.List;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
@@ -16,6 +16,5 @@ public final class CustomerSales implements Serializable {
     
     public final CustomerInfo customer;
        
-    // fix it
-    public final List<SaleTx> sales = Collections.EMPTY_LIST;
+    public final List<SaleTx> sales = new ArrayList<>();
 }

@@ -11,7 +11,7 @@ import org.apache.beam.sdk.values.KV;
 */
 
 @Slf4j
-public class RegionalDiscountKVParserDoFn extends DoFn<String, KV<String, RegionalDiscount>> implements CSVParsers {
+public class RegionalDiscountKVParserDoFn extends DoFn<String, KV<String, RegionalDiscount>> implements CSVCommons {
 
     @ProcessElement
     public void processElement(ProcessContext ctx) {

@@ -18,7 +18,7 @@ public class PhoneNameKeyForCustomerDoFn extends DoFn<CustomerInfo, KV<String, C
             
             String normalizedPhoneNo = StringUtils.remove(info.phoneNo, SPACE);
             
-            String key = StringUtils.join(";", normalizedPhoneNo, info.lastName);
+            String key = StringUtils.joinWith(";", normalizedPhoneNo, info.lastName);
            
             ctx.output(KV.of(key, info));
         }
