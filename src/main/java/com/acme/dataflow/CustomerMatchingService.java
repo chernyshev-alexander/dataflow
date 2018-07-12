@@ -18,23 +18,29 @@ import org.apache.beam.sdk.values.PBegin;
 import org.apache.beam.sdk.values.PCollectionTuple;
 import org.apache.beam.sdk.values.TupleTag;
 import org.apache.beam.sdk.values.TupleTagList;
-import com.acme.dataflow.dofns.SplitCustomerByCountryDoFn;
+import com.acme.dataflow.dofns.SplitCustomersByRegionDoFn;
 import com.acme.dataflow.model.CustomerInfo;
 import com.acme.dataflow.dofns.CountryCodesParser;
 import com.acme.dataflow.dofns.CustomerInfoCsvParserDoFn;
 import com.acme.dataflow.dofns.EnrichCustomerWithCountryFn;
 import com.acme.dataflow.dofns.JoinerCustomersAndSalesDoFn;
 import com.acme.dataflow.dofns.KVCountryCodeCustomerDoFn;
-import com.acme.dataflow.dofns.KVNameForCustomerDoFn;
+import com.acme.dataflow.dofns.PhoneNameKeyForCustomerDoFn;
+import com.acme.dataflow.dofns.RegionalDiscountKVParserDoFn;
 import com.acme.dataflow.dofns.SalesKVParserDoFn;
+import com.acme.dataflow.dofns.StoresKVParserDoFn;
+import com.acme.dataflow.model.CustomerSales;
+import com.acme.dataflow.model.RegionalDiscount;
 import com.acme.dataflow.model.SaleTx;
+import com.acme.dataflow.model.Store;
+import java.util.List;
+import org.apache.beam.sdk.repackaged.com.google.common.base.Function;
 import org.apache.beam.sdk.repackaged.org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.beam.sdk.transforms.DoFn;
+import org.apache.beam.sdk.transforms.SerializableFunction;
 
 @Slf4j
 public class CustomerMatchingService {
-
-    static final String COMMA_SPLITTER_EXP = "\\s*,\\s*";
 
     final Pipeline pipeline;
     final Options options;
@@ -44,24 +50,35 @@ public class CustomerMatchingService {
         this.options = options;
     }
 
-    public PCollection<CustomerInfo> readCustomers(PTransform<PBegin, PCollection<String>> reader) {
-        return pipeline.apply("ReadCustomersCSV", reader)
-                .apply(ParDo.of(new CustomerInfoCsvParserDoFn(COMMA_SPLITTER_EXP)));
-    }
-
-    /**
-     * Transform countries strings to key value p-collection
-     *
-     * example : "POL, POLAND" -> KV{"POL", "POLAND"}
-     *
-     * @param reader - source of strings (java list or BigQuery reader)
-     * @return PCollection of KV(countryCode, countryName)
-     */
+    // parsers CSV -> KV<Primary Key, Entity>
+    
     public PCollection<KV<String, String>> readCountryCodes(PTransform<PBegin, PCollection<String>> reader) {
-        return pipeline.apply("ReadCSVCountryCodes", reader)
+        return pipeline.apply(CountryCodesParser.class.getName(), reader)
                 .apply(ParDo.of(new CountryCodesParser()));
     }
+    
+    public PCollection<CustomerInfo> readCustomers(PTransform<PBegin, PCollection<String>> reader) {
+        return pipeline.apply(CustomerInfoCsvParserDoFn.class.getName(), reader)
+                .apply(ParDo.of(new CustomerInfoCsvParserDoFn()));
+    }
 
+    public PCollection<KV<String, SaleTx>> readSalesWithPK(PTransform<PBegin, PCollection<String>> reader) {
+        return pipeline.apply(SalesKVParserDoFn.class.getName(), reader)
+                .apply(ParDo.of(new SalesKVParserDoFn()));
+    }   
+
+    public PCollection<KV<String,Store>> readStoresWithPK(PTransform<PBegin, PCollection<String>> reader) {
+        return pipeline.apply(StoresKVParserDoFn.class.getName(), reader)
+                .apply(ParDo.of(new StoresKVParserDoFn()));
+    }   
+    
+    public PCollection<KV<String, RegionalDiscount>> readRegionalDiscountsWithPK(PTransform<PBegin, PCollection<String>> reader) {
+        return pipeline.apply(RegionalDiscountKVParserDoFn.class.getName(), reader)
+                .apply(ParDo.of(new RegionalDiscountKVParserDoFn()));
+    }   
+
+    // End of CSV parsers
+    
     /**
      * Implements left join customer with country by countryCode as :
      *
@@ -101,40 +118,60 @@ public class CustomerMatchingService {
      * @param allCustomers - customers
      * @return 3 collections are branched by TAG_**
      */
-    public PCollectionTuple branchCustomersByCountryCode(final PCollection<CustomerInfo> allCustomers) {
+    public PCollectionTuple splitCustomersByRegion(final PCollection<CustomerInfo> allCustomers) {
         return allCustomers
-                .apply(ParDo.of(new SplitCustomerByCountryDoFn())
-                        .withOutputTags(SplitCustomerByCountryDoFn.TAG_EU_CUSTOMER,
-                                TupleTagList.of(SplitCustomerByCountryDoFn.TAG_UDEF_COUNTRY_CUSTOMER)
-                                        .and(SplitCustomerByCountryDoFn.TAG_USA_CUSTOMER)));
+                .apply(ParDo.of(new SplitCustomersByRegionDoFn())
+                        .withOutputTags(SplitCustomersByRegionDoFn.TAG_EU_CUSTOMER,
+                                TupleTagList.of(SplitCustomersByRegionDoFn.TAG_UDEF_COUNTRY_CUSTOMER)
+                                        .and(SplitCustomersByRegionDoFn.TAG_USA_CUSTOMER)));
     }
 
-    public PCollection<String> matchSalesWithCustomers(
-                    final PCollection<CustomerInfo> allCustomers,
-                    final PCollection<KV<ImmutablePair<String, String>, SaleTx>> sales) {
+    public PCollection<CustomerSales> makeSalesReportByVendorsWithRegionalDiscount(
+                    final PCollection<CustomerInfo> customers,
+                    final PCollection<KV<String, SaleTx>> sales,
+                    final PCollection<KV<String, Store>> stores,
+                    final PCollection<KV<String, RegionalDiscount>> discount) {
         
-        PCollectionTuple countryCustomers = branchCustomersByCountryCode(allCustomers);
+        PCollectionTuple customersByRegion = splitCustomersByRegion(customers);
         
-        PCollection<CustomerInfo> euCustomers = countryCustomers.get(SplitCustomerByCountryDoFn.TAG_EU_CUSTOMER);
-        PCollection<CustomerInfo> usCustomers = countryCustomers.get(SplitCustomerByCountryDoFn.TAG_USA_CUSTOMER);
-        PCollection<CustomerInfo> undefCustomers = countryCustomers.get(SplitCustomerByCountryDoFn.TAG_UDEF_COUNTRY_CUSTOMER);
+        PCollection<CustomerInfo> euCustomers = customersByRegion.get(SplitCustomersByRegionDoFn.TAG_EU_CUSTOMER);
+        PCollection<CustomerInfo> usCustomers = customersByRegion.get(SplitCustomersByRegionDoFn.TAG_USA_CUSTOMER);
+        PCollection<CustomerInfo> undefCustomers = customersByRegion.get(SplitCustomersByRegionDoFn.TAG_UDEF_COUNTRY_CUSTOMER);
         
         final TupleTag<CustomerInfo> tagCustomerInfo = new TupleTag<>();
         final TupleTag<SaleTx> tagSaleTx = new TupleTag<>();
+        final TupleTag<Store> tagStore = new TupleTag<>();
+        final TupleTag<RegionalDiscount> tagRegionalDiscount = new TupleTag<>();
 
-        PCollection<KV<ImmutablePair<String, String>, CustomerInfo>> keyPhoneNameCustomer = 
-                euCustomers.apply(ParDo.of(new KVNameForCustomerDoFn()));
-            
-        // join customer as c, sales as s where c.phone = s.phone and c.lastname = s.customername
-        PCollection<KV<ImmutablePair<String, String>, CoGbkResult>> join = KeyedPCollectionTuple
+        PCollection<KV<String, CustomerInfo>> keyPhoneNameCustomer = 
+                euCustomers.apply(ParDo.of(new PhoneNameKeyForCustomerDoFn()));
+                        
+        PCollection<KV<String, CoGbkResult>> joinSales = KeyedPCollectionTuple
                 .of(tagCustomerInfo, keyPhoneNameCustomer)
                 .and(tagSaleTx, sales)
-                .apply(CoGroupByKey.create());
+                .apply("JoinSales", CoGroupByKey.create());
         
-        PCollection<String> result = join.apply("JoinCustomersAndSales", 
+        /*
+        PCollection<CustomerSales> customerSales = joinSales.apply("JoinCustomersAndSales", 
                 ParDo.of(new JoinerCustomersAndSalesDoFn(tagCustomerInfo, tagSaleTx)));
+        
 
-        return result;
+        /*
+       PCollection<KV<ImmutablePair<String, String>, CoGbkResult>> joinStores = KeyedPCollectionTuple
+                .of(tagCustomerInfo, keyPhoneNameCustomer)
+                .and(tagSaleTx, sales)
+                .apply(CoGroupByKey.create());        
+        
+        DoFn<CustomerSales, Void> fns = new DoFn() {
+            public void processElement(ProcessContext c) {
+                System.err.println(c.element());
+            }
+        }; 
+       
+        customerSales.apply(ParDo.of(fns));
+        */
+       
+        return null;
  
     }
     

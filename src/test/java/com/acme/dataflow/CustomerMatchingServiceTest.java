@@ -2,7 +2,7 @@ package com.acme.dataflow;
 
 import java.util.Arrays;
 import java.util.List;
-import com.acme.dataflow.dofns.SplitCustomerByCountryDoFn;
+import com.acme.dataflow.dofns.SplitCustomersByRegionDoFn;
 import com.acme.dataflow.model.CustomerInfo;
 import java.util.Collections;
 import org.apache.beam.runners.direct.repackaged.com.google.common.base.Strings;
@@ -65,17 +65,17 @@ public class CustomerMatchingServiceTest {
     }
 
     @Test
-    public void testBranchCustomersByCountryCode() {
+    public void testSplitCustomersByRegion() {
 
         CustomerMatchingService service = new CustomerMatchingService(pipeline, options);
 
         PCollection<CustomerInfo> customers = service.readCustomers(Create.of(customerLines));
 
-        PCollectionTuple result = service.branchCustomersByCountryCode(customers);
+        PCollectionTuple result = service.splitCustomersByRegion(customers);
         
-        PCollection<CustomerInfo> euCustomers = result.get(SplitCustomerByCountryDoFn.TAG_EU_CUSTOMER);
-        PCollection<CustomerInfo> usCustomers = result.get(SplitCustomerByCountryDoFn.TAG_USA_CUSTOMER);
-        PCollection<CustomerInfo> undefCustomers = result.get(SplitCustomerByCountryDoFn.TAG_UDEF_COUNTRY_CUSTOMER);
+        PCollection<CustomerInfo> euCustomers = result.get(SplitCustomersByRegionDoFn.TAG_EU_CUSTOMER);
+        PCollection<CustomerInfo> usCustomers = result.get(SplitCustomersByRegionDoFn.TAG_USA_CUSTOMER);
+        PCollection<CustomerInfo> undefCustomers = result.get(SplitCustomersByRegionDoFn.TAG_UDEF_COUNTRY_CUSTOMER);
         
         //  high-order help function 
         Function<List<String>, SerializableFunction<Iterable<CustomerInfo>, Void>> testFun
@@ -93,21 +93,22 @@ public class CustomerMatchingServiceTest {
     }
 
     @Test
-    public void testMatchSalesWithCustomers() {
+    public void testMakeSalesReportByVendorsWithRegionalDiscounts() {
      
         CustomerMatchingService service = new CustomerMatchingService(pipeline, options);
 
-        PCollection<CustomerInfo> customers = service.readCustomers(Create.of(customerLines));
+        PCollection<CustomerInfo> rawCustomers = service.readCustomers(Create.of(customerLines));
         PCollection<KV<String, String>> countries = service.readCountryCodes(Create.of(countryCodes));
 
-        // CustomerInfo.countryCode should be one of the countries codes POL, US, UK ..
-        PCollection<CustomerInfo> enrichedCustomers = service.enrichCustomerWithCountryCode(customers, countries);
+        PCollection<CustomerInfo> customers = service.enrichCustomerWithCountryCode(rawCustomers, countries);
 
-        PCollectionTuple result = service.branchCustomersByCountryCode(customers);
-        
-        PCollection<CustomerInfo> euCustomers = result.get(SplitCustomerByCountryDoFn.TAG_EU_CUSTOMER);
-        PCollection<CustomerInfo> usCustomers = result.get(SplitCustomerByCountryDoFn.TAG_USA_CUSTOMER);
-        PCollection<CustomerInfo> undefCustomers = result.get(SplitCustomerByCountryDoFn.TAG_UDEF_COUNTRY_CUSTOMER);
+        // todo returns PCollection<SalesReportEntries>
+        //PCollection<CustomerInfo> reportEntries = 
+                service.makeSalesReportByVendorsWithRegionalDiscount(
+                        customers, 
+                        service.readSalesWithPK(Create.of(sales)), 
+                        service.readStoresWithPK(Create.of(stores)), 
+                        service.readRegionalDiscountsWithPK(Create.of(regionalDiscounts)));             
         
          pipeline.run().waitUntilFinish();
 
@@ -129,19 +130,19 @@ public class CustomerMatchingServiceTest {
         "POL,  POLAND", "US, USA", "UK, United Kingdom"
     });
 
-    private static final List<String> SALES = Arrays.asList(new String[] {
+    private static final List<String> sales = Arrays.asList(new String[] {
        "CHERNYSHEV, +48516420276, STORE.1, PROD.1, TX-1000, 1, 10.20, 0.00, EUR", 
        "IVANOVA, +11100001999, STORE.2, PROD.10, TX-4000, 1, 50.10, 0.00, EUR", 
        "DONALN, +11111111111, STORE.4, PROD.100, TX-2233, 1, 30.40, 4.00, USD", 
     });
     
-   private static final List<String> STORES = Arrays.asList(new String[] {
+   private static final List<String> stores = Arrays.asList(new String[] {
        "STORE.1,  APPLE", 
        "STORE.2,  FURLA", 
        "STORE.4,  HOME DEPOT", 
     });   
 
-   private static final List<String> PERSENT_OF_DISCOUNT_BY_CURRENCY = Arrays.asList(new String[] {
+   private static final List<String> regionalDiscounts = Arrays.asList(new String[] {
        "EUR,  2", 
        "USD,  5"
     });   

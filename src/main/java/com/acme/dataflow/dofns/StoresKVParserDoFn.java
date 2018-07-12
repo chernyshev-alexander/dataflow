@@ -2,18 +2,17 @@ package com.acme.dataflow.dofns;
 
 import com.acme.dataflow.model.Store;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.beam.sdk.transforms.DoFn;
 import org.apache.beam.sdk.values.KV;
 
 /**
-* 
 *  csv line  => KV { storeId -> Store }
 */
 
 @Slf4j
-public class StoresKVParserDoFn extends AbstractCSVKVEntityParser<Store> {
+public class StoresKVParserDoFn extends DoFn<String, KV<String, Store>> implements CSVParsers {
     
     @ProcessElement
-    @Override
     public void processElement(ProcessContext c) {
         
         String[] parts = pattern.split(c.element());

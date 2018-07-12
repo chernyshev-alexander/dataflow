@@ -5,24 +5,32 @@ import java.math.BigDecimal;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.beam.sdk.repackaged.org.apache.commons.lang3.StringUtils;
 import static org.apache.beam.sdk.repackaged.org.apache.commons.lang3.StringUtils.SPACE;
+import org.apache.beam.sdk.transforms.DoFn;
 import org.apache.beam.sdk.values.KV;
 
 /**
-* 
-*  csv line  => KV { pnoneNumber -> SaleTx }
+*  csv line  => KV { pnoneNumber;lastCustomerName -> SaleTx }
 */
 
 @Slf4j
-public class SalesKVParserDoFn extends AbstractCSVKVEntityParser<SaleTx> {
+public class SalesKVParserDoFn extends DoFn<String, KV<String, SaleTx>> implements CSVParsers {
 
     @ProcessElement
-    @Override
-    public void processElement(ProcessContext c) {
-        String[] parts = pattern.split(c.element());
+    public void processElement(ProcessContext ctx) {
+        
+        String[] parts = pattern.split(ctx.element());
+        
         if (parts.length < 9) {
-            log.warn("bad record  " + c.element());
+            
+            log.warn("bad record  " + ctx.element());
+            
         } else {
-            c.output(KV.of(parts[1], buildEntity(parts)));
+            
+            SaleTx value = buildEntity(parts);
+            
+            String key = StringUtils.joinWith(";", value.normalizedPhoneNumber, value.lastCustomerName);
+            
+            ctx.output(KV.of(key, value));
         }
     }
 

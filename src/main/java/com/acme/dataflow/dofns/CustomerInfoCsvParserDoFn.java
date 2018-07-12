@@ -10,13 +10,9 @@ import java.util.regex.Pattern;
 public class CustomerInfoCsvParserDoFn extends DoFn<String, CustomerInfo> {
 
     static final String COMMA_SPLITTER_EXP = "\\s*,\\s*";
+    final Pattern pattern = Pattern.compile(COMMA_SPLITTER_EXP);
 
     final Counter handledCustomerRecords = Metrics.counter(CustomerInfoCsvParserDoFn.class, "customer.parsed");
-    final Pattern pattern;
-
-    public CustomerInfoCsvParserDoFn(String regExp) {
-        pattern = Pattern.compile(regExp);
-    }
 
     @ProcessElement
     public void processElement(ProcessContext ctx) {

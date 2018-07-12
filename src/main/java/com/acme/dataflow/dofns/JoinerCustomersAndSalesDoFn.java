@@ -1,6 +1,7 @@
 package com.acme.dataflow.dofns;
 
 import com.acme.dataflow.model.CustomerInfo;
+import com.acme.dataflow.model.CustomerSales;
 import com.acme.dataflow.model.SaleTx;
 import org.apache.beam.sdk.repackaged.org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.beam.sdk.transforms.DoFn;
@@ -8,7 +9,7 @@ import org.apache.beam.sdk.transforms.join.CoGbkResult;
 import org.apache.beam.sdk.values.KV;
 import org.apache.beam.sdk.values.TupleTag;
 
-public class JoinerCustomersAndSalesDoFn extends DoFn<KV<ImmutablePair<String, String>, CoGbkResult>, String> {
+public class JoinerCustomersAndSalesDoFn extends DoFn<KV<ImmutablePair<String, String>, CoGbkResult>, CustomerSales> {
 
     final TupleTag<SaleTx> saleTag;
     final TupleTag<CustomerInfo> customerTag;
@@ -25,11 +26,13 @@ public class JoinerCustomersAndSalesDoFn extends DoFn<KV<ImmutablePair<String, S
         
         ImmutablePair<String, String> k = kv.getKey();
         
-        CustomerInfo ccc = kv.getValue().getOnly(customerTag);
-        Iterable<SaleTx> it = kv.getValue().getAll(saleTag);
+        CustomerInfo customer = kv.getValue().getOnly(customerTag);
+        Iterable<SaleTx> sales = kv.getValue().getAll(saleTag);
         
-        it.forEach((SaleTx tx) -> {
-            c.output("JoinerCustomersAndSalesDoFn : " + tx.toString());
-        });
+        CustomerSales cs  = CustomerSales.of(customer);
+                
+        sales.forEach((SaleTx tx) -> cs.getSales().add(tx));
+        
+        c.output(cs);
     }
 }

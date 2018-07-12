@@ -11,7 +11,7 @@ import org.apache.beam.sdk.values.TupleTag;
  * output - CustomerInfo(POL, UK), CustomerInfo(US), CustomerInfo(<others>)
  */
 @Slf4j
-public class SplitCustomerByCountryDoFn extends DoFn<CustomerInfo, CustomerInfo> {
+public class SplitCustomersByRegionDoFn extends DoFn<CustomerInfo, CustomerInfo> {
     
         public static final TupleTag<CustomerInfo> TAG_EU_CUSTOMER = new TupleTag<CustomerInfo>() {
         };

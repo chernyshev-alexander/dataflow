@@ -1,6 +1,6 @@
 package com.acme.dataflow.dofns;
 
-import com.acme.dataflow.model.RegionDiscount;
+import com.acme.dataflow.model.RegionalDiscount;
 import java.util.Arrays;
 import java.util.List;
 import org.apache.beam.sdk.testing.PAssert;
@@ -23,14 +23,13 @@ public class PersentOfDiscountByRegionKVParserDoFnTest {
     @Test
     public void testPersentOfDiscountByRegionKVParser() {
 
-        PersentOfDiscountByRegionKVParserDoFn parser = new PersentOfDiscountByRegionKVParserDoFn();
+        RegionalDiscountKVParserDoFn parser = new RegionalDiscountKVParserDoFn();
 
-        PCollection<KV<String, RegionDiscount>> result = pipeline.apply(Create.of(PERSENT_OF_DISCOUNT_BY_CURRENCY))
+        PCollection<KV<String, RegionalDiscount>> result = pipeline.apply(Create.of(PERSENT_OF_DISCOUNT_BY_CURRENCY))
                 .apply(ParDo.of(parser));
 
-        PAssert.that(result).containsInAnyOrder(Arrays.asList(
-                                KV.of("EUR", RegionDiscount.of("EUR", 2.0)),
-                                KV.of("USD", RegionDiscount.of("USD", 5.0))));
+        PAssert.that(result).containsInAnyOrder(Arrays.asList(KV.of("EUR", RegionalDiscount.of("EUR", 2.0)),
+                                KV.of("USD", RegionalDiscount.of("USD", 5.0))));
 
         pipeline.run().waitUntilFinish();
     }

@@ -10,7 +10,7 @@ import lombok.ToString;
 @ToString(includeFieldNames = true)
 @EqualsAndHashCode
 @RequiredArgsConstructor(staticName = "of")
-public final class RegionDiscount implements Serializable {
+public final class RegionalDiscount implements Serializable {
     
     public final String currencyCode;
     public final Double persentOfDiscount;

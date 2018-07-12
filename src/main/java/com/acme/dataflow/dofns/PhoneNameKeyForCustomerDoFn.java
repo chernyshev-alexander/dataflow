@@ -3,15 +3,13 @@ package com.acme.dataflow.dofns;
 import com.acme.dataflow.model.CustomerInfo;
 import org.apache.beam.sdk.repackaged.org.apache.commons.lang3.StringUtils;
 import static org.apache.beam.sdk.repackaged.org.apache.commons.lang3.StringUtils.SPACE;
-import org.apache.beam.sdk.repackaged.org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.beam.sdk.transforms.DoFn;
 import org.apache.beam.sdk.values.KV;
 
 //
 // customer => {(phoneNo, lastName) -> CustomerInfo }
 //
-public class KVNameForCustomerDoFn extends DoFn<CustomerInfo, 
-        KV<ImmutablePair<String, String>, CustomerInfo>> {
+public class PhoneNameKeyForCustomerDoFn extends DoFn<CustomerInfo, KV<String, CustomerInfo>> {
 
         @ProcessElement
         public void processElement(ProcessContext ctx) {
@@ -20,10 +18,9 @@ public class KVNameForCustomerDoFn extends DoFn<CustomerInfo,
             
             String normalizedPhoneNo = StringUtils.remove(info.phoneNo, SPACE);
             
-            ImmutablePair<String, String> pair = 
-                    new ImmutablePair<>(normalizedPhoneNo, info.lastName);
+            String key = StringUtils.join(";", normalizedPhoneNo, info.lastName);
            
-            ctx.output(KV.of(pair, info));
+            ctx.output(KV.of(key, info));
         }
     };
     
