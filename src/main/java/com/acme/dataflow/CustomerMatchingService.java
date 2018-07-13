@@ -25,6 +25,7 @@ import com.acme.dataflow.dofns.CustomerInfoCsvParserDoFn;
 import com.acme.dataflow.dofns.EnrichCustomerWithCountryFn;
 import com.acme.dataflow.dofns.JoinerCustomersAndSalesDoFn;
 import com.acme.dataflow.dofns.CountryCodeKeyForCustomerDoFn;
+import com.acme.dataflow.dofns.CustomerSalesStoresDiscounterDoFn;
 import com.acme.dataflow.dofns.PhoneNameKeyForCustomerDoFn;
 import com.acme.dataflow.dofns.RegionalDiscountKVParserDoFn;
 import com.acme.dataflow.dofns.SalesKVParserDoFn;
@@ -34,11 +35,11 @@ import com.acme.dataflow.model.RegionalDiscount;
 import com.acme.dataflow.model.SaleTx;
 import com.acme.dataflow.model.Store;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
-import org.apache.beam.sdk.transforms.Combine;
-import org.apache.beam.sdk.transforms.DoFn;
-import org.apache.beam.sdk.transforms.GroupByKey;
+import org.apache.beam.sdk.transforms.Flatten;
 import org.apache.beam.sdk.transforms.View;
+import org.apache.beam.sdk.values.PCollectionList;
 import org.apache.beam.sdk.values.PCollectionView;
 
 @Slf4j
@@ -172,34 +173,33 @@ public class CustomerMatchingService {
         PCollection<CustomerSales> usCustomerSales = joinCustomersWithSales(TAG_US_REGION, usCustomers, sales);
         PCollection<CustomerSales> undefCustomerSales = joinCustomersWithSales(TAG_UNKNOWN_REGION, undefCustomers, sales);
 
-        PCollection<CustomerSales> euCustomerSalesDiscounted = applyDiscountsForStoresInRegion(euCustomerSales, stores, discount);
-        PCollection<CustomerSales> usCustomerSalesDiscounted = applyDiscountsForStoresInRegion(usCustomerSales, stores, discount);
-        PCollection<CustomerSales> undefCustomerSalesDiscounted = applyDiscountsForStoresInRegion(undefCustomerSales, stores, discount);
+        // create dictionaries with unique names from short pcollections for side inputs
+        PCollectionView<Map<String, Store>> storesView = stores.apply("stores", View.asMap());
+        PCollectionView<Map<String, RegionalDiscount>> discountView = discount.apply("discounts", View.asMap());
+
+        PCollection<CustomerSales> euCustomerSalesDiscounted
+                = applyDiscountsForStoresInRegion(euCustomerSales, storesView, discountView);
+        PCollection<CustomerSales> usCustomerSalesDiscounted
+                = applyDiscountsForStoresInRegion(usCustomerSales, storesView, discountView);
+        PCollection<CustomerSales> undefCustomerSalesDiscounted
+                = applyDiscountsForStoresInRegion(undefCustomerSales, storesView, discountView);
 
         return PCollectionTuple.of(EU_SALES, euCustomerSalesDiscounted)
                 .and(US_SALES, usCustomerSalesDiscounted)
                 .and(UNDEF_SALES, undefCustomerSalesDiscounted);
     }
 
-    static class CustomerSalesDiscounterDoFn extends DoFn<CustomerSales, CustomerSales> {
-        
-    }
-    
     private PCollection<CustomerSales> applyDiscountsForStoresInRegion(
-            final PCollection<CustomerSales> customerSales, 
-            final PCollection<KV<String, Store>> stores,
-            final PCollection<KV<String, RegionalDiscount>> discount) {
+            final PCollection<CustomerSales> customerSales,
+            final PCollectionView<Map<String, Store>> storesView,
+            final PCollectionView<Map<String, RegionalDiscount>> discountView) {
 
-        log.info("apply discounts in stores for region {}", customerSales.getName());
-        
-      //  PCollectionView<KV<String, Store>> cc = stores.apply(View.asSingleton());
-                
-   //  wordLengths.apply(Combine.globally(new Max.MaxIntFn()).asSingletonView());
-        
-       // customerSales.apply(ParDo.of(new CustomerSalesDiscounterDoFn())
-       //         .withSideInputs(cv));
+        log.debug("apply discounts in stores for region {}", customerSales.getName());
 
-        return customerSales;
+        return customerSales.apply(customerSales.getName() + "store-discount",
+                ParDo.of(new CustomerSalesStoresDiscounterDoFn(storesView, discountView))
+                        .withSideInputs(storesView)
+                        .withSideInputs(discountView));
     }
 
     /**
@@ -227,10 +227,27 @@ public class CustomerMatchingService {
 
         PCollection<CustomerSales> customerSales = joinSales.apply(regionName + "CustomerSales",
                 ParDo.of(new JoinerCustomersAndSalesDoFn(tagCustomerInfo, tagSaleTx)));
-        
+
         customerSales.setName(regionName);
 
         return customerSales;
+    }
+
+    /**
+     * Merge sales by regions to one report
+     * 
+     * @param customerSalesTuple - tuple with 3 p-collection for each region
+     * @return merged version of the p-collection
+     */
+    PCollection<CustomerSales> mergeAllCustomerSalesToOneStream(PCollectionTuple customerSalesTuple) {
+
+        PCollection<CustomerSales> euCustomers = customerSalesTuple.get(CustomerMatchingService.EU_SALES);
+        PCollection<CustomerSales> usCustomers = customerSalesTuple.get(CustomerMatchingService.US_SALES);
+        PCollection<CustomerSales> undefCustomers = customerSalesTuple.get(CustomerMatchingService.UNDEF_SALES);
+        
+        List<PCollection<CustomerSales>> tabs = Arrays.asList(euCustomers, usCustomers, undefCustomers);
+        
+        return PCollectionList.of(tabs).apply(Flatten.<CustomerSales>pCollections());
     }
 
     /**

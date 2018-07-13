@@ -21,6 +21,6 @@ public class CustomerInfo implements Serializable {
     public final String lineAddress;
     public final String phoneNo;
     
-    @Wither final String countryName;
+    @Wither public final String countryName;
 
 }

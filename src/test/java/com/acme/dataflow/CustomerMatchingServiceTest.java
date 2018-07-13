@@ -151,22 +151,59 @@ public class CustomerMatchingServiceTest {
                     it.forEach(e -> {
                         assertTrue(e.getCustomer().getLastName().equalsIgnoreCase(ls.get(0)));
                         e.getSales().forEach(s -> assertTrue(s.getCurrencyCode().equalsIgnoreCase(ls.get(1))));
+                        // TODO : validate { store -> discounts map }
+                        assertTrue(e.getMaxDiscountsPerStoreName().size() > 0);
                     });
                     return null;
                 };
 
         // customers from EU payed in EUR
         PAssert.that(customerSales.get(CustomerMatchingService.EU_SALES))
-                             .satisfies(testFun.apply(Arrays.asList("CHERNYSHEV", "EUR")));
+                .satisfies(testFun.apply(Arrays.asList("CHERNYSHEV", "EUR")));
         // customers from USA payed in EUR as well
         PAssert.that(customerSales.get(CustomerMatchingService.US_SALES))
-                             .satisfies(testFun.apply(Arrays.asList("IVANOVA", "EUR")));
+                .satisfies(testFun.apply(Arrays.asList("IVANOVA", "EUR")));
         // no  customers from others countries
         PAssert.that(customerSales.get(CustomerMatchingService.UNDEF_SALES))
-                             .satisfies(testFun.apply(Collections.EMPTY_LIST));
-        
-        pipeline.run().waitUntilFinish();
+                .satisfies(testFun.apply(Collections.EMPTY_LIST));
 
+        pipeline.run().waitUntilFinish();
+    }
+
+    @Test
+    public void testUnionAllCustomerSalesToOneStream() {
+
+        CustomerMatchingService service = new CustomerMatchingService(pipeline, options);
+
+        PCollection<CustomerInfo> rawCustomers = service.readCustomers(Create.of(customers));
+        PCollection<KV<String, String>> countries = service.readCountryCodes(Create.of(countryCodes));
+
+        PCollection<CustomerInfo> ls_customers = service.enrichCustomerWithCountryCode(rawCustomers, countries);
+
+        // splitted streams
+        PCollectionTuple customerSalesTuple
+                = service.makeSalesReportByVendorsWithRegionalDiscount(
+                        ls_customers,
+                        service.readSalesWithPK(Create.of(sales)),
+                        service.readStoresWithPK(Create.of(stores)),
+                        service.readRegionalDiscountsWithPK(Create.of(regionalDiscounts)));
+
+        // merge 3 stream to one global report
+        PCollection<CustomerSales> mergedCustomerSales = service.mergeAllCustomerSalesToOneStream(customerSalesTuple);
+
+        SerializableFunction<Iterable<CustomerSales>, Void> sf = (Iterable<CustomerSales> it) -> {
+            it.forEach(e -> { 
+                // todo : same real asserts should be here 
+                assertTrue(e.getCustomer() != null 
+                        && ! e.sales.isEmpty()
+                        && ! e.maxDiscountsPerStoreName.isEmpty());
+                    });
+            return null;
+        };
+
+        PAssert.that(mergedCustomerSales).satisfies(sf);
+
+        pipeline.run().waitUntilFinish();
     }
 
     // test data 

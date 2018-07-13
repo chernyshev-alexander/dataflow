@@ -1,5 +1,6 @@
 Dataflow small test 
 
+
 pipeline steps
 
 1. [C1: customers] join [countries] = [C2 : customers + country name]
@@ -23,3 +24,6 @@ How to run :  maven test
 06/07 - added discounts. sales, stores and corresponded DoFns parsers
 
 13/07 - implemented customer sales (makeSalesReportByVendorsWithRegionalDiscount)
+
+15/07 - finished makeSalesReportByVendorsWithRegionalDiscount() + test
+        mergeAllCustomerSalesToOneStream + test
